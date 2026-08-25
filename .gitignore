@@ -1,0 +1,41 @@
+# Python runtime
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environment
+venv/
+.venv/
+
+# Data (DVC-tracked, not git-tracked)
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# MLflow local tracking
+mlruns/
+mlflow.db
+
+# Secrets / env
+.env
+*.env.local
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Model artifacts saved outside MLflow registry
+*.pkl
+*.joblib
