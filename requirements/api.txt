@@ -1,0 +1,4 @@
+-r base.txt
+fastapi>=0.110
+uvicorn[standard]>=0.29
+mlflow>=2.10
