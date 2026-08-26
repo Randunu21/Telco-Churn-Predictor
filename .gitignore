@@ -39,3 +39,7 @@ Thumbs.db
 # Model artifacts saved outside MLflow registry
 *.pkl
 *.joblib
+
+#dvc
+.dvc/*
+.dvcignore
