@@ -40,6 +40,4 @@ Thumbs.db
 *.pkl
 *.joblib
 
-#dvc
-.dvc/*
-.dvcignore
+
