@@ -1,0 +1,4 @@
+[core]
+    remote = telcochurnpred
+['remote "telcochurnpred"']
+    url = ../s3.us-east-005.backblazeb2.com
