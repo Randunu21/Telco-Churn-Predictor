@@ -1,7 +1,7 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings , SettingsConfigDict
 
-class settings(BaseSettings):
+class Settings(BaseSettings):
     # model_path: Path
     # data_raw_path: Path
     # data_processed_path: Path
@@ -37,6 +37,9 @@ class settings(BaseSettings):
     data_raw_path: Path = Path(__file__).parent.parent / "data" / "raw" / "WA_Fn-UseC_-Telco-Customer-Churn.csv"
     data_processed_path: Path = Path(__file__).parent.parent / "data" / "processed" / "cleaned_data.csv"
     mlflow_tracking_uri: str = "http://localhost:5000"  
+    mlflow_experiment_name: str = "telco-churn"
     
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+Settings = Settings() #why is this needed?
