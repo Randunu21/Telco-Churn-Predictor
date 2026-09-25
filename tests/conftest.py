@@ -38,6 +38,6 @@ def raw_telco_df():
                            "Credit card (automatic)", "Mailed check", "Electronic check",
                            "Bank transfer (automatic)", "Mailed check"],
         "MonthlyCharges": [29.85, 56.95, 53.85, 42.30, 70.70, 99.65, 89.10, 29.75, 104.80, 56.15, 20.05],
-        "TotalCharges": [29.85, 1889.5, 108.15, 1840.75, 151.65, 820.5, 1949.4, 301.9, 3046.05, 3487.95, 100.25],
+        "TotalCharges": ["29.85", "1889.5", "108.15", "1840.75", "151.65", "820.5", "1949.4", "301.9", "3046.05", "3487.95", "100.25"],
         "Churn": ["No", "No", "Yes", "No", "Yes", "Yes", "No", "No", "Yes", "No", "No"],
     })

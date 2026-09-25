@@ -4,6 +4,7 @@ from telco_churn.models.pipeline import build_pipeline
 from xgboost import XGBClassifier
 from sklearn.linear_model import LogisticRegression
 import mlflow
+from telco_churn.data.schema import validate_raw
 
 
 def train_and_log(pipeline, run_name, X_train, y_train, X_test, y_test):
@@ -26,6 +27,7 @@ if __name__ == "__main__":
     mlflow.sklearn.autolog()
 
     df = load_raw()
+    df = validate_raw(df)
     df = clean(df)
     X_train, X_test, y_train, y_test = split(df)
     target_encoder = build_target_encoder(y_train)
