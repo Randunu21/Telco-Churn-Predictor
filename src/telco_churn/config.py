@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     model_uri : str = "models:/telco-churn@champion"
     mlflow_experiment_name: str = "telco-churn"
     decision_threshold: float = 0.5
+    max_batch_size: int = 500
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
