@@ -1,0 +1,7 @@
+# Everything needed to load the trained pipeline.
+# Included by BOTH train.txt and api.txt, so training and serving can never
+# drift onto different versions of these libraries.
+scikit-learn==1.9.0
+imbalanced-learn==0.14.2
+xgboost==3.4.1
+skops==0.16.0

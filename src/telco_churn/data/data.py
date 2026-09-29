@@ -28,5 +28,5 @@ def split(df):
 
 def build_target_encoder(y):
     encoder = OrdinalEncoder(categories=[["No", "Yes"]])
-    encoder.fit(y.values.reshape(-1, 1))
+    encoder.fit(y.to_numpy().reshape(-1, 1))
     return encoder

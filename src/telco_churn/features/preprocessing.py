@@ -17,7 +17,9 @@ def build_preprocessor():
 
 
 def build_smote():
-    categorical_features_for_smote = settings.ohe_cols + settings.binary_cols
+    categorical_features_for_smote = (
+        settings.ohe_cols + settings.binary_cols + settings.categorical_numeric_cols
+    )
     smote = SMOTENC(categorical_features=categorical_features_for_smote, random_state=settings.random_state)
     return smote
 

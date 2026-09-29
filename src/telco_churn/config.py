@@ -17,15 +17,17 @@ class Settings(BaseSettings):
         "TechSupport", "StreamingTV", "StreamingMovies",
     ]
     numeric_cols: list[str] = ["tenure"]
+    categorical_numeric_cols: list[str] = ["SeniorCitizen"]
     service_cols_to_recode: list[str] = [
         "OnlineSecurity", "OnlineBackup", "DeviceProtection",
         "TechSupport", "StreamingTV", "StreamingMovies",
     ]
 
-    data_raw_path: Path = Path(__file__).parent.parent.parent / "data" / "raw" / "WA_Fn-UseC_-Telco-Customer-Churn.csv"
+    data_raw_path: Path = Path(__file__).parent.parent.parent / "data" / "raw" / "Telco_Cusomer_Churn.csv"
     data_processed_path: Path = Path(__file__).parent.parent.parent / "data" / "processed" / "cleaned_data.csv"
     mlflow_tracking_uri: str = "http://localhost:5000"
     mlflow_experiment_name: str = "telco-churn"
+    decision_threshold: float = 0.5
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
