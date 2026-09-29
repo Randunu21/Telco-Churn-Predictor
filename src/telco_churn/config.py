@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     data_raw_path: Path = Path(__file__).parent.parent.parent / "data" / "raw" / "Telco_Cusomer_Churn.csv"
     data_processed_path: Path = Path(__file__).parent.parent.parent / "data" / "processed" / "cleaned_data.csv"
     mlflow_tracking_uri: str = "http://localhost:5000"
+    model_uri : str = "models:/telco-churn@champion"
     mlflow_experiment_name: str = "telco-churn"
     decision_threshold: float = 0.5
 
