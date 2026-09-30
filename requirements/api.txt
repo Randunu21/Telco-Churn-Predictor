@@ -1,6 +1,6 @@
 -r base.txt
 -r model.txt
-fastapi==0.141.1
+fastapi[standard]==0.141.1
 uvicorn[standard]==0.52.4
 # Model loading strategy (full mlflow vs mlflow-skinny vs none) is decided in
 # step 4.1; full mlflow for now so the registry and skops loading work.
