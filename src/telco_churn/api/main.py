@@ -8,15 +8,13 @@ import logging
 from contextlib import asynccontextmanager
 from importlib.metadata import version
 
-
 from fastapi import FastAPI
 
-from telco_churn.api.model_loader import load_model
-from telco_churn.api.routes import health, model_info
-from telco_churn.config import settings
-from telco_churn.api.routes import health, model_info, predict
 from telco_churn.api.errors import register_exception_handlers
 from telco_churn.api.middleware import add_request_id_middleware
+from telco_churn.api.model_loader import load_model
+from telco_churn.api.routes import health, model_info, predict
+from telco_churn.config import settings
 
 logging.basicConfig(
     level=logging.INFO,
