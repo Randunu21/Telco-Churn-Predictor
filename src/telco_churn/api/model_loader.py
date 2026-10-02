@@ -18,6 +18,9 @@ logger = logging.getLogger(__name__)
 UNREGISTERED = "unregistered"
 UNKNOWN = "unknown"
 
+# The API maps predict_proba column 1 to "Yes" (churn). That is only true if
+# the model's classes are [0, 1], i.e. training encoded No=0, Yes=1.
+EXPECTED_CLASSES = [0, 1]
 REGISTRY_PREFIX = "models:/"
 RUNS_PREFIX = "runs:/"
 
@@ -84,6 +87,20 @@ def _run_id_from_runs_uri(model_uri: str) -> str:
     return UNKNOWN
 
 
+def check_classes(model: Any) -> None:
+    """Fail fast if the model's class order isn't what the API assumes.
+
+    Protects against a future retrain with a different label encoding
+    silently flipping every prediction.
+    """
+    classes = list(getattr(model, "classes_", []))
+    if classes != EXPECTED_CLASSES:
+        raise ValueError(
+            f"Model classes are {classes}, expected {EXPECTED_CLASSES} "
+            "(No=0, Yes=1). Refusing to serve: predict_proba columns would "
+            "be misinterpreted."
+        )
+
 def load_model(model_uri: str, tracking_uri: str) -> LoadedModel:
     """Resolve the model's metadata, load it, and return both.
 
@@ -114,6 +131,7 @@ def load_model(model_uri: str, tracking_uri: str) -> LoadedModel:
         load_uri = f"{REGISTRY_PREFIX}{name}/{version}"
 
     model = mlflow.sklearn.load_model(load_uri)
+    check_classes(model)
 
     logger.info(
         "Loaded model %s version %s (alias=%s, run_id=%s) from %s",

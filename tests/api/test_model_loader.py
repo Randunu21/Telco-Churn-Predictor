@@ -4,6 +4,7 @@ from telco_churn.api.model_loader import (
     UNKNOWN,
     ParsedModelUri,
     _run_id_from_runs_uri,
+    check_classes,
     parse_model_uri,
 )
 
@@ -54,3 +55,25 @@ def test_run_id_extracted_from_runs_uri():
 
 def test_run_id_unknown_for_local_path():
     assert _run_id_from_runs_uri("/opt/models/churn") == UNKNOWN
+
+
+class _ModelWithClasses:
+    def __init__(self, classes):
+        self.classes_ = classes
+
+
+@pytest.mark.parametrize("classes", [[0, 1], [0.0, 1.0]])
+def test_check_classes_accepts_zero_one(classes):
+    # Training labels come out of OrdinalEncoder as floats (0.0, 1.0).
+    check_classes(_ModelWithClasses(classes))
+
+
+@pytest.mark.parametrize("classes", [[1, 0], ["No", "Yes"], [0, 1, 2]])
+def test_check_classes_rejects_anything_else(classes):
+    with pytest.raises(ValueError, match="expected"):
+        check_classes(_ModelWithClasses(classes))
+
+
+def test_check_classes_rejects_model_without_classes():
+    with pytest.raises(ValueError):
+        check_classes(object())

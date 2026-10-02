@@ -8,11 +8,15 @@ import logging
 from contextlib import asynccontextmanager
 from importlib.metadata import version
 
+
 from fastapi import FastAPI
 
 from telco_churn.api.model_loader import load_model
 from telco_churn.api.routes import health, model_info
 from telco_churn.config import settings
+from telco_churn.api.routes import health, model_info, predict
+from telco_churn.api.errors import register_exception_handlers
+from telco_churn.api.middleware import add_request_id_middleware
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,5 +50,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+register_exception_handlers(app)
+add_request_id_middleware(app)
+
 app.include_router(health.router)  # /health/live, /health/ready
 app.include_router(model_info.router, prefix="/v1")  # /v1/model-info
+app.include_router(predict.router, prefix="/v1")  # /v1/predict, /v1/predict/batch

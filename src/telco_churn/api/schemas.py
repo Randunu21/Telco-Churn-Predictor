@@ -100,6 +100,7 @@ class BatchPredictionRequest(BaseModel):
         description=f"1 to {settings.max_batch_size} customers.",
     )
 
+#Error Handling
 
 # --------------------------------------------------------------- responses
 class PredictionResponse(BaseModel):
@@ -142,3 +143,18 @@ class LivenessResponse(BaseModel):
 class ReadinessResponse(BaseModel):
     status: Literal["ready", "not_ready"]
     model_loaded: bool
+
+# ------------------------------------------------------------------ errors
+class ErrorDetail(BaseModel):
+    code: str = Field(description="Machine-readable error code, e.g. validation_error.")
+    message: str = Field(description="Human-readable explanation.")
+    request_id: str = Field(description="Quote this when reporting a problem.")
+    details: list[dict] | None = Field(
+        default=None, description="Field-level problems (validation errors only)."
+    )
+
+
+class ErrorResponse(BaseModel):
+    """The one shape every error response has."""
+
+    error: ErrorDetail
