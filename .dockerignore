@@ -1,0 +1,76 @@
+# .dockerignore — deny-list for the Docker build context (repo root).
+# NOTE: .gitignore does NOT apply to Docker builds; this file is separate.
+# When you add a new kind of file to the repo, ask: should it be excluded here?
+
+# ---- Secrets (CRITICAL: repo and images are public) ----
+.env
+.env.*
+*.env
+*.env.local
+.dvc/config.local
+.dvc/tmp/
+.dvc/cache/
+*.pem
+*.key
+.netrc
+
+# ---- Version control ----
+.git/
+.gitignore
+.gitattributes
+
+# ---- Python environments ----
+.venv/
+venv/
+env/
+
+# ---- Python build / cache junk ----
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+**/*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+*.coverage
+htmlcov/
+coverage.xml
+
+# ---- Data & model artifacts (API gets the model from MLflow at runtime) ----
+data/
+mlflow.db
+mlruns/
+mlartifacts/
+*.pkl
+*.joblib
+*.skops
+
+# ---- DVC metadata (not needed to serve) ----
+.dvc/
+.dvcignore
+*.dvc
+
+# ---- Not needed at runtime ----
+notebooks/
+.ipynb_checkpoints/
+tests/
+docs/
+README.md
+
+# ---- Docker / Compose files themselves ----
+docker-compose*.yml
+compose*.yml
+.dockerignore
+
+# ---- Editor / CI / OS ----
+.vscode/
+.idea/
+.devcontainer/
+.github/
+.DS_Store
+Thumbs.db
