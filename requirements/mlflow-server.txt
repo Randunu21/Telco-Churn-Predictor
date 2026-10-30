@@ -1,5 +1,5 @@
-#tracking server only; no ML libraries or project code;
-# the driver is needed for postgresql:// backend URIs
+#psycopg 3 driver; URIs must say postgresql+psycopg://; 
+#and change “no ML libraries” to “no model.txt, no project code”,
+psycopg[binary]==3.3.6
 
 -r mlflow.txt
-psycopg2-binary==2.9.13
