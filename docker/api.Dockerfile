@@ -46,9 +46,11 @@ RUN pip install --no-deps .
 # ---------------------------------------------------------------------------
 FROM ${PYTHON_IMAGE} AS runtime
 
+# MLFLOW_DISABLE_TELEMETRY: no usage telemetry from the serving container.
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    MLFLOW_DISABLE_TELEMETRY=true
 
 # Non-root user with a fixed UID (Kubernetes runAsNonRoot can check it in Phase 7).
 RUN groupadd --gid 10001 app \
