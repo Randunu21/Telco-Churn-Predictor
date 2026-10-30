@@ -28,6 +28,7 @@ mlflow.db
 # Secrets / env
 .env
 *.env.local
+compose.env
 
 # IDE / OS
 .vscode/
