@@ -1,0 +1,5 @@
+#tracking server only; no ML libraries or project code;
+# the driver is needed for postgresql:// backend URIs
+
+-r mlflow.txt
+psycopg2-binary==2.9.13
