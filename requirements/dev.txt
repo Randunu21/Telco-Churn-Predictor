@@ -3,7 +3,5 @@
 -r api.txt
 pytest==9.1.1
 pytest-cov==7.1.0
-black>=24.0
-ruff>=0.4
-jupyter>=1.0
+ruff==0.17.3
 httpx==0.28.1
