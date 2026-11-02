@@ -65,6 +65,7 @@ README.md
 # ---- Docker / Compose files themselves ----
 docker-compose*.yml
 compose*.yml
+compose*.yaml
 .dockerignore
 
 # ---- Editor / CI / OS ----
