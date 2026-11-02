@@ -6,15 +6,15 @@
 #   docker build -f docker/mlflow.Dockerfile -t telco-churn-mlflow:dev .
 #
 # Single stage on purpose: every dependency ships as a prebuilt wheel
-# (psycopg[binary] bundles libpq), so there is nothing to compile and no build
+# (psycopg2-binary bundles libpq), so there is nothing to compile and no build
 # tools to leave behind. No project code goes in this image.
 #
 # All settings are environment variables read by `mlflow server`, so Compose /
 # Kubernetes can override any of them. The defaults below let the image run on
 # its own with SQLite; Compose (5.6) switches the backend to Postgres:
-#   MLFLOW_BACKEND_STORE_URI=postgresql+psycopg://<user>:<password>@<host>:5432/<db>
-# (driver named explicitly: SQLAlchemy 2.1 changed the default driver for a
-# bare postgresql:// from psycopg2 to psycopg 3, so never rely on the default)
+#   MLFLOW_BACKEND_STORE_URI=postgresql+psycopg2://<user>:<password>@<host>:5432/<db>
+# (driver named explicitly: SQLAlchemy 2.1 made psycopg 3 the default for a
+# bare postgresql://, and MLflow's registry breaks on psycopg 3)
 # and must add the service name to the allowed Host headers, e.g.
 #   MLFLOW_SERVER_ALLOWED_HOSTS=mlflow:5000,localhost:*,...
 # (Setting it REPLACES MLflow's default list of localhost + private IPs.)

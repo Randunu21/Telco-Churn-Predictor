@@ -1,6 +1,9 @@
 # MLflow tracking server image only (docker/mlflow.Dockerfile):
 # no model.txt, no project code.
-# psycopg 3 driver: backend URIs must use postgresql+psycopg://
-# (SQLAlchemy 2.1 changed the default driver for a bare postgresql://).
+# Postgres driver: psycopg2. Backend URIs must name it explicitly:
+#   postgresql+psycopg2://...
+# (SQLAlchemy 2.1 made psycopg 3 the default for a bare postgresql://, but
+# MLflow 3.15.2's model registry breaks on psycopg 3: setting an alias fails
+# with "operator does not exist: integer = character varying".)
 -r mlflow.txt
-psycopg[binary]==3.3.6
+psycopg2-binary==2.9.13
