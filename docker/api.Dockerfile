@@ -30,7 +30,11 @@ ENV PATH="/opt/venv/bin:$PATH"
 WORKDIR /build
 
 # 1) Dependencies first: this slow layer stays cached until requirements change.
-COPY requirements/ requirements/
+#    Only the three files api.txt uses (it includes base.txt and model.txt), NOT
+#    the whole requirements/ folder: otherwise editing an unrelated file such as
+#    mlflow-server.txt would invalidate this cache and reinstall everything.
+#    If api.txt ever includes another file with -r, add it here too.
+COPY requirements/base.txt requirements/model.txt requirements/api.txt requirements/
 RUN pip install -r requirements/api.txt
 
 # 2) Our package last: editing a .py file only re-runs this cheap step.
