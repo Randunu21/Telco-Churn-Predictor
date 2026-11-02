@@ -1,5 +1,6 @@
-#psycopg 3 driver; URIs must say postgresql+psycopg://; 
-#and change “no ML libraries” to “no model.txt, no project code”,
-psycopg[binary]==3.3.6
-
+# MLflow tracking server image only (docker/mlflow.Dockerfile):
+# no model.txt, no project code.
+# psycopg 3 driver: backend URIs must use postgresql+psycopg://
+# (SQLAlchemy 2.1 changed the default driver for a bare postgresql://).
 -r mlflow.txt
+psycopg[binary]==3.3.6
