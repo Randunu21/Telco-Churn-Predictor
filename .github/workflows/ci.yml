@@ -1,5 +1,5 @@
-# CI: lint, lockfile check and tests on every push to Dev/main and every PR into main.
-# Image builds, ghcr.io publishing and the Compose smoke test are added in later steps.
+# CI: lint, lockfile check, tests and image builds on every push to Dev/main and every PR into main.
+# Publishing to ghcr.io and the Compose smoke test are added in later steps.
 
 name: CI
 
@@ -84,3 +84,32 @@ jobs:
           --cov=telco_churn
           --cov-report=term-missing
           --cov-fail-under=85
+
+  build:
+    name: Build image (${{ matrix.image }})
+    needs: [lint, test] # only build code that passed lint and tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false # if one image fails, still finish the other (two results, not one)
+      matrix:
+        image: [api, mlflow] # -> docker/api.Dockerfile, docker/mlflow.Dockerfile
+    steps:
+      - uses: actions/checkout@v7
+
+      # BuildKit builder that can export layer caches to GitHub's cache service.
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build ${{ matrix.image }} image
+        uses: docker/build-push-action@v7
+        with:
+          context: . # repo root, like `docker build -f docker/... .`
+          file: docker/${{ matrix.image }}.Dockerfile
+          push: false # publishing to ghcr.io comes in step 6.4
+          tags: telco-churn-${{ matrix.image }}:ci
+          # mode=max caches every stage, including the API builder stage where
+          # the ~1 GB dependency install happens. One cache scope per image, so
+          # the two matrix jobs don't overwrite each other's cache.
+          # ignore-error: a cache-service hiccup must not fail the build.
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max,ignore-error=true
