@@ -100,14 +100,6 @@ def train_and_log(pipeline, run_name, X_train, y_train, X_test, y_test):
 
 
 if __name__ == "__main__":
-    # Purpose of writing this if __name__ == "__main__" is to ensure that the code inside
-    # this block is only executed when the script is run directly, and not when it is
-    #  imported as a module in another script. This is a common practice in Python to allow
-    #  for modularity and reusability of code. If not included, the code would execute even
-    # when the script is imported(If we only wanted train_and_log from this file...
-    # that import will run this whole file if not for this), which may not be desired behavior.
-    # This is called a dunder (double underscore) method in Python.
-
     mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
     mlflow.set_experiment(settings.mlflow_experiment_name)
 

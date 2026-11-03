@@ -19,7 +19,7 @@ def test_build_pipeline_returns_fresh_instances_each_call():
 
 
 def test_pipeline_fits_and_predicts_without_error(pipeline_ready_data):
-    X_train, X_test, y_train, y_test = pipeline_ready_data
+    X_train, X_test, y_train, _y_test = pipeline_ready_data
     pipeline = build_pipeline(LogisticRegression(max_iter=1000))
 
     pipeline.fit(X_train, y_train)
@@ -34,7 +34,7 @@ def test_pipeline_predict_returns_one_row_per_input_row_not_resampled_count(
     # SMOTENC changes row count DURING fit; imblearn's Pipeline auto-skips
     # resampling at predict time. This pins that behavior down explicitly
     # rather than just trusting it silently.
-    X_train, X_test, y_train, y_test = pipeline_ready_data
+    X_train, X_test, y_train, _y_test = pipeline_ready_data
     pipeline = build_pipeline(LogisticRegression(max_iter=1000))
 
     pipeline.fit(X_train, y_train)
@@ -44,7 +44,7 @@ def test_pipeline_predict_returns_one_row_per_input_row_not_resampled_count(
 
 
 def test_pipeline_predict_proba_is_valid_probability(pipeline_ready_data):
-    X_train, X_test, y_train, y_test = pipeline_ready_data
+    X_train, X_test, y_train, _y_test = pipeline_ready_data
     pipeline = build_pipeline(LogisticRegression(max_iter=1000))
 
     pipeline.fit(X_train, y_train)
@@ -56,7 +56,7 @@ def test_pipeline_predict_proba_is_valid_probability(pipeline_ready_data):
 
 
 def test_pipeline_predictions_contain_no_nan(pipeline_ready_data):
-    X_train, X_test, y_train, y_test = pipeline_ready_data
+    X_train, X_test, y_train, _y_test = pipeline_ready_data
     pipeline = build_pipeline(LogisticRegression(max_iter=1000))
 
     pipeline.fit(X_train, y_train)
@@ -71,7 +71,7 @@ def test_pipeline_does_not_error_on_category_unseen_in_training(pipeline_ready_d
     # invisible in development. A correctly train-only-fit pipeline should
     # handle a never-before-seen category gracefully (via
     # handle_unknown="ignore"), not raise.
-    X_train, X_test, y_train, y_test = pipeline_ready_data
+    X_train, X_test, y_train, _y_test = pipeline_ready_data
     pipeline = build_pipeline(LogisticRegression(max_iter=1000))
     pipeline.fit(X_train, y_train)
 

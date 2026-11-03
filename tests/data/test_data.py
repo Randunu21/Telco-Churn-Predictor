@@ -37,7 +37,7 @@ def test_clean_does_not_mutate_input(raw_telco_df):
 
 def test_split_returns_disjoint_train_test_rows(raw_telco_df):
     cleaned = clean(raw_telco_df)
-    X_train, X_test, y_train, y_test = split(cleaned)
+    X_train, X_test, _y_train, _y_test = split(cleaned)
 
     assert len(X_train) + len(X_test) == len(cleaned)
     assert set(X_train.index).isdisjoint(set(X_test.index))
@@ -45,7 +45,7 @@ def test_split_returns_disjoint_train_test_rows(raw_telco_df):
 
 def test_split_drops_churn_from_X(raw_telco_df):
     cleaned = clean(raw_telco_df)
-    X_train, X_test, y_train, y_test = split(cleaned)
+    X_train, X_test, _y_train, _y_test = split(cleaned)
 
     assert "Churn" not in X_train.columns
     assert "Churn" not in X_test.columns
@@ -53,7 +53,7 @@ def test_split_drops_churn_from_X(raw_telco_df):
 
 def test_split_y_values_are_valid_labels(raw_telco_df):
     cleaned = clean(raw_telco_df)
-    X_train, X_test, y_train, y_test = split(cleaned)
+    _X_train, _X_test, y_train, y_test = split(cleaned)
 
     assert set(y_train.unique()).issubset({"Yes", "No"})
     assert set(y_test.unique()).issubset({"Yes", "No"})
@@ -80,7 +80,7 @@ def test_target_encoder_maps_no_to_0_and_yes_to_1(raw_telco_df):
     # "No" -> 0, "Yes" -> 1 — this specific mapping matters downstream:
     # it's what lets a model's raw prediction be translated back into a
     # human-readable label later, so it needs to be pinned down, not incidental.
-    for original, enc in zip(y, encoded.ravel()):
+    for original, enc in zip(y, encoded.ravel(), strict=True):
         expected = 0.0 if original == "No" else 1.0
         assert enc == expected
 
