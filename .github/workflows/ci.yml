@@ -1,0 +1,86 @@
+# CI: lint, lockfile check and tests on every push to Dev/main and every PR into main.
+# Image builds, ghcr.io publishing and the Compose smoke test are added in later steps.
+
+name: CI
+
+on:
+  push:
+    branches: [Dev, main] # case-sensitive: "Dev", not "dev"
+  pull_request:
+    branches: [main] # PRs *into* main (tests the merge result)
+  workflow_dispatch: # manual "Run workflow" button (appears once this file is on main)
+
+# One run per branch/PR: a newer push cancels the older run still in progress.
+# Runs on main are never cancelled, so every commit on main gets a result.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# Least privilege: read the repo, nothing else. Jobs that need more ask for it.
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12" # keep in step with the Docker base images and scripts/lock.sh
+  UV_SYSTEM_PYTHON: "1" # uv installs into the runner's Python (throwaway VM, no venv needed)
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  MLFLOW_DISABLE_TELEMETRY: "true"
+
+jobs:
+  lint:
+    name: Lint, format and lockfiles
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # Tool versions come from the dev lock, so they are pinned in one place only.
+      - name: Install uv and ruff (versions from requirements/dev.txt)
+        run: |
+          python -m pip install "$(grep -E '^uv==' requirements/dev.txt)"
+          uv pip install "$(grep -E '^ruff==' requirements/dev.txt)"
+
+      - name: Ruff lint
+        run: ruff check --output-format=github .
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+      - name: Lockfiles match the .in files
+        run: |
+          scripts/lock.sh
+          if ! git diff --exit-code -- requirements/; then
+            echo "::error::Lockfiles are out of date. Run scripts/lock.sh and commit the result."
+            exit 1
+          fi
+
+  test:
+    name: Tests (pytest)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv (version from requirements/dev.txt)
+        run: python -m pip install "$(grep -E '^uv==' requirements/dev.txt)"
+
+      # Exactly the dev lock, then our package without dependencies (all pinned above).
+      - name: Install dependencies and the package
+        run: |
+          uv pip install -r requirements/dev.txt
+          uv pip install --no-deps -e .
+
+      - name: Run tests with coverage
+        run: >-
+          python -m pytest
+          --cov=telco_churn
+          --cov-report=term-missing
+          --cov-fail-under=85
