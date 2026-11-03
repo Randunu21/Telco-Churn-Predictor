@@ -5,5 +5,5 @@
 # (SQLAlchemy 2.1 made psycopg 3 the default for a bare postgresql://, but
 # MLflow 3.15.2's model registry breaks on psycopg 3: setting an alias fails
 # with "operator does not exist: integer = character varying".)
--r mlflow.txt
+-r mlflow.in
 psycopg2-binary==2.9.13

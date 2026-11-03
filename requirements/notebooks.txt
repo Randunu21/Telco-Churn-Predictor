@@ -1,2 +1,2 @@
--r train.txt
+-r dev.txt
 jupyter>=1.0

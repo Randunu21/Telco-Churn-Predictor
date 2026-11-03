@@ -1,0 +1,5 @@
+-r base.in
+-r model.in
+-r mlflow.in
+pandera==0.32.1
+dvc[s3]==3.67.1
