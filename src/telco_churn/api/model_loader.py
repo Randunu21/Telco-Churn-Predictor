@@ -101,6 +101,7 @@ def check_classes(model: Any) -> None:
             "be misinterpreted."
         )
 
+
 def load_model(model_uri: str, tracking_uri: str) -> LoadedModel:
     """Resolve the model's metadata, load it, and return both.
 

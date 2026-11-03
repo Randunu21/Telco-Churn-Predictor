@@ -10,10 +10,12 @@ def _smote_ready_frame(n=1000, seed=0):
     SeniorCitizen is 0/1, and seniors are deliberately 50% of churners so any
     distortion in synthetic samples is easy to detect."""
     rng = np.random.default_rng(seed)
-    X = pd.DataFrame({
-        "SeniorCitizen": rng.choice([0, 1], size=n),
-        "tenure": rng.integers(1, 72, size=n),
-    })
+    X = pd.DataFrame(
+        {
+            "SeniorCitizen": rng.choice([0, 1], size=n),
+            "tenure": rng.integers(1, 72, size=n),
+        }
+    )
     for col in settings.ohe_cols:
         X[col] = rng.choice(["a", "b", "c"], size=n)
     for col in settings.binary_cols:
@@ -30,7 +32,7 @@ def test_smote_keeps_senior_citizen_binary_and_undistorted():
     X, y = _smote_ready_frame()
     X_res, _ = build_smote().fit_resample(X, y)
 
-    synthetic = X_res.iloc[len(X):]
+    synthetic = X_res.iloc[len(X) :]
     assert set(synthetic["SeniorCitizen"].unique()) <= {0, 1}
 
     real_rate = X.loc[y == 1, "SeniorCitizen"].mean()
@@ -39,8 +41,12 @@ def test_smote_keeps_senior_citizen_binary_and_undistorted():
 
 
 def test_recode_no_service_replaces_only_the_service_value():
-    X = pd.DataFrame({col: ["No internet service", "Yes", "No"]
-                      for col in settings.service_cols_to_recode})
+    X = pd.DataFrame(
+        {
+            col: ["No internet service", "Yes", "No"]
+            for col in settings.service_cols_to_recode
+        }
+    )
     X["InternetService"] = ["No", "DSL", "Fiber optic"]
 
     out = recode_no_service(X)

@@ -11,7 +11,10 @@ def test_build_pipeline_returns_fresh_instances_each_call():
     pipeline_a = build_pipeline(LogisticRegression())
     pipeline_b = build_pipeline(LogisticRegression())
 
-    assert pipeline_a.named_steps["preprocessor"] is not pipeline_b.named_steps["preprocessor"]
+    assert (
+        pipeline_a.named_steps["preprocessor"]
+        is not pipeline_b.named_steps["preprocessor"]
+    )
     assert pipeline_a.named_steps["smote"] is not pipeline_b.named_steps["smote"]
 
 
@@ -25,7 +28,9 @@ def test_pipeline_fits_and_predicts_without_error(pipeline_ready_data):
     assert len(preds) == len(X_test)
 
 
-def test_pipeline_predict_returns_one_row_per_input_row_not_resampled_count(pipeline_ready_data):
+def test_pipeline_predict_returns_one_row_per_input_row_not_resampled_count(
+    pipeline_ready_data,
+):
     # SMOTENC changes row count DURING fit; imblearn's Pipeline auto-skips
     # resampling at predict time. This pins that behavior down explicitly
     # rather than just trusting it silently.
@@ -71,6 +76,8 @@ def test_pipeline_does_not_error_on_category_unseen_in_training(pipeline_ready_d
     pipeline.fit(X_train, y_train)
 
     X_test_new = X_test.copy()
-    X_test_new.iloc[0, X_test_new.columns.get_loc("PaymentMethod")] = "Some Brand New Payment Method"
+    X_test_new.iloc[0, X_test_new.columns.get_loc("PaymentMethod")] = (
+        "Some Brand New Payment Method"
+    )
 
     pipeline.predict(X_test_new)  # should not raise

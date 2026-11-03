@@ -1,7 +1,8 @@
-from telco_churn.config import settings
+import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OrdinalEncoder
-import pandas as pd
+
+from telco_churn.config import settings
 
 
 def load_raw():
@@ -18,7 +19,8 @@ def split(df):
     X = df.drop(columns="Churn")
     y = df["Churn"]
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
+        X,
+        y,
         test_size=settings.test_size,
         random_state=settings.random_state,
         stratify=y,

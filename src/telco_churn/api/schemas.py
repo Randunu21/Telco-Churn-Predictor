@@ -100,7 +100,9 @@ class BatchPredictionRequest(BaseModel):
         description=f"1 to {settings.max_batch_size} customers.",
     )
 
-#Error Handling
+
+# Error Handling
+
 
 # --------------------------------------------------------------- responses
 class PredictionResponse(BaseModel):
@@ -143,6 +145,7 @@ class LivenessResponse(BaseModel):
 class ReadinessResponse(BaseModel):
     status: Literal["ready", "not_ready"]
     model_loaded: bool
+
 
 # ------------------------------------------------------------------ errors
 class ErrorDetail(BaseModel):

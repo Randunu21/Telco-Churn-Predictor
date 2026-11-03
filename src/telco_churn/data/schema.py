@@ -1,5 +1,5 @@
 import pandera.pandas as pa
-from pandera.pandas import Column, Check
+from pandera.pandas import Check, Column
 
 raw_schema = pa.DataFrameSchema(
     {
@@ -14,16 +14,27 @@ raw_schema = pa.DataFrameSchema(
         "InternetService": Column(str, Check.isin(["DSL", "Fiber optic", "No"])),
         "OnlineSecurity": Column(str, Check.isin(["Yes", "No", "No internet service"])),
         "OnlineBackup": Column(str, Check.isin(["Yes", "No", "No internet service"])),
-        "DeviceProtection": Column(str, Check.isin(["Yes", "No", "No internet service"])),
+        "DeviceProtection": Column(
+            str, Check.isin(["Yes", "No", "No internet service"])
+        ),
         "TechSupport": Column(str, Check.isin(["Yes", "No", "No internet service"])),
         "StreamingTV": Column(str, Check.isin(["Yes", "No", "No internet service"])),
-        "StreamingMovies": Column(str, Check.isin(["Yes", "No", "No internet service"])),
+        "StreamingMovies": Column(
+            str, Check.isin(["Yes", "No", "No internet service"])
+        ),
         "Contract": Column(str, Check.isin(["Month-to-month", "One year", "Two year"])),
         "PaperlessBilling": Column(str, Check.isin(["Yes", "No"])),
-        "PaymentMethod": Column(str, Check.isin([
-            "Electronic check", "Mailed check",
-            "Bank transfer (automatic)", "Credit card (automatic)",
-        ])),
+        "PaymentMethod": Column(
+            str,
+            Check.isin(
+                [
+                    "Electronic check",
+                    "Mailed check",
+                    "Bank transfer (automatic)",
+                    "Credit card (automatic)",
+                ]
+            ),
+        ),
         "MonthlyCharges": Column(float, Check.ge(0)),
         "TotalCharges": Column(str, nullable=True),
         "Churn": Column(str, Check.isin(["Yes", "No"])),

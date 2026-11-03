@@ -1,14 +1,28 @@
-from telco_churn.config import settings
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, OrdinalEncoder, StandardScaler
 from imblearn.over_sampling import SMOTENC
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import (
+    FunctionTransformer,
+    OneHotEncoder,
+    OrdinalEncoder,
+    StandardScaler,
+)
+
+from telco_churn.config import settings
 
 
 def build_preprocessor():
     preprocessor = ColumnTransformer(
         transformers=[
-            ("ohe", OneHotEncoder(sparse_output=False, handle_unknown="ignore"), settings.ohe_cols),
-            ("binary", OrdinalEncoder(categories=[["No", "Yes"]] * len(settings.binary_cols)), settings.binary_cols),
+            (
+                "ohe",
+                OneHotEncoder(sparse_output=False, handle_unknown="ignore"),
+                settings.ohe_cols,
+            ),
+            (
+                "binary",
+                OrdinalEncoder(categories=[["No", "Yes"]] * len(settings.binary_cols)),
+                settings.binary_cols,
+            ),
             ("scaler", StandardScaler(), settings.numeric_cols),
         ],
         remainder="passthrough",
@@ -20,7 +34,10 @@ def build_smote():
     categorical_features_for_smote = (
         settings.ohe_cols + settings.binary_cols + settings.categorical_numeric_cols
     )
-    smote = SMOTENC(categorical_features=categorical_features_for_smote, random_state=settings.random_state)
+    smote = SMOTENC(
+        categorical_features=categorical_features_for_smote,
+        random_state=settings.random_state,
+    )
     return smote
 
 

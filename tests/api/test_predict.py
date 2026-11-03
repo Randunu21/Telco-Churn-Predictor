@@ -99,9 +99,7 @@ def test_api_matches_real_pipeline_exactly(real_pipeline_client):
     client, pipeline, X_test = real_pipeline_client
     rows = X_test.head(5)
 
-    response = client.post(
-        "/v1/predict/batch", json={"customers": _to_json_rows(rows)}
-    )
+    response = client.post("/v1/predict/batch", json={"customers": _to_json_rows(rows)})
 
     assert response.status_code == 200
     api_scores = [p["churn_score"] for p in response.json()["predictions"]]

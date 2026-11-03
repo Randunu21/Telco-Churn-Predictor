@@ -107,4 +107,6 @@ def test_n_customers_in_n_predictions_out(valid_customer_payload):
 def test_non_finite_scores_raise_model_output_error(valid_customer_payload, bad_score):
     model = _RecordingModel([0.2, bad_score, 0.7])
     with pytest.raises(ModelOutputError, match="1 non-finite"):
-        predict(_loaded(model), _customers(valid_customer_payload, ["A", "B", "C"]), 0.5)
+        predict(
+            _loaded(model), _customers(valid_customer_payload, ["A", "B", "C"]), 0.5
+        )

@@ -6,7 +6,13 @@ from sklearn.linear_model import LogisticRegression
 from telco_churn.models.pipeline import build_pipeline
 from telco_churn.models.train import evaluate, train_and_log
 
-EXPECTED_METRICS = {"test_pr_auc", "test_roc_auc", "test_f1", "test_precision", "test_recall"}
+EXPECTED_METRICS = {
+    "test_pr_auc",
+    "test_roc_auc",
+    "test_f1",
+    "test_precision",
+    "test_recall",
+}
 
 
 class _FixedProbaModel:
@@ -44,7 +50,9 @@ def test_evaluate_threshold_changes_only_threshold_dependent_metrics():
     assert at_low["test_recall"] == pytest.approx(1.0)
 
 
-def test_train_and_log_logs_metrics_params_and_a_loadable_model(pipeline_ready_data, tmp_path):
+def test_train_and_log_logs_metrics_params_and_a_loadable_model(
+    pipeline_ready_data, tmp_path
+):
     X_train, X_test, y_train, y_test = pipeline_ready_data
 
     # Disposable, test-local tracking store (SQLite, matching the real backend).
@@ -58,7 +66,7 @@ def test_train_and_log_logs_metrics_params_and_a_loadable_model(pipeline_ready_d
     assert run.info.run_name == "test-run"
 
     # Test-set metrics, all present and in [0, 1]
-    assert EXPECTED_METRICS <= set(run.data.metrics)
+    assert set(run.data.metrics) >= EXPECTED_METRICS
     assert all(0.0 <= run.data.metrics[m] <= 1.0 for m in EXPECTED_METRICS)
 
     assert run.data.params["classifier"] == "LogisticRegression"

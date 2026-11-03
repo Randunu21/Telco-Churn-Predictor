@@ -56,16 +56,17 @@ def build_params(pipeline):
     plus the project-level settings that shape training."""
     classifier = pipeline.named_steps["classifier"]
     params = {
-        f"classifier__{name}": value
-        for name, value in classifier.get_params().items()
+        f"classifier__{name}": value for name, value in classifier.get_params().items()
     }
-    params.update({
-        "classifier": type(classifier).__name__,
-        "test_size": settings.test_size,
-        "random_state": settings.random_state,
-        "decision_threshold": settings.decision_threshold,
-        "smote_k_neighbors": pipeline.named_steps["smote"].k_neighbors,
-    })
+    params.update(
+        {
+            "classifier": type(classifier).__name__,
+            "test_size": settings.test_size,
+            "random_state": settings.random_state,
+            "decision_threshold": settings.decision_threshold,
+            "smote_k_neighbors": pipeline.named_steps["smote"].k_neighbors,
+        }
+    )
     return params
 
 
@@ -83,7 +84,9 @@ def train_and_log(pipeline, run_name, X_train, y_train, X_test, y_test):
         # pyfunc_predict_fn keeps the generic pyfunc flavor consistent with
         # that signature; the API will load the native sklearn flavor anyway.
         input_example = X_train.head(5)
-        signature = infer_signature(input_example, pipeline.predict_proba(input_example))
+        signature = infer_signature(
+            input_example, pipeline.predict_proba(input_example)
+        )
         mlflow.sklearn.log_model(
             pipeline,
             name="model",
@@ -97,14 +100,13 @@ def train_and_log(pipeline, run_name, X_train, y_train, X_test, y_test):
 
 
 if __name__ == "__main__":
-#Purpose of writing this if __name__ == "__main__" is to ensure that the code inside 
-# this block is only executed when the script is run directly, and not when it is
-#  imported as a module in another script. This is a common practice in Python to allow
-#  for modularity and reusability of code. If not included, the code would execute even 
-# when the script is imported(If we only wanted train_and_log from this file...
-# that import will run this whole file if not for this), which may not be desired behavior.
-#This is called a dunder (double underscore) method in Python. 
-
+    # Purpose of writing this if __name__ == "__main__" is to ensure that the code inside
+    # this block is only executed when the script is run directly, and not when it is
+    #  imported as a module in another script. This is a common practice in Python to allow
+    #  for modularity and reusability of code. If not included, the code would execute even
+    # when the script is imported(If we only wanted train_and_log from this file...
+    # that import will run this whole file if not for this), which may not be desired behavior.
+    # This is called a dunder (double underscore) method in Python.
 
     mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
     mlflow.set_experiment(settings.mlflow_experiment_name)

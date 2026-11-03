@@ -1,12 +1,19 @@
-from telco_churn.data.data import clean, split
 import numpy as np
-from telco_churn.data.data import build_target_encoder
+
+from telco_churn.data.data import build_target_encoder, clean, split
 
 
 def test_clean_drops_expected_columns(raw_telco_df):
     cleaned = clean(raw_telco_df)
 
-    for col in ["TotalCharges", "MonthlyCharges", "gender", "PhoneService", "MultipleLines", "customerID"]:
+    for col in [
+        "TotalCharges",
+        "MonthlyCharges",
+        "gender",
+        "PhoneService",
+        "MultipleLines",
+        "customerID",
+    ]:
         assert col not in cleaned.columns
 
 
@@ -101,5 +108,6 @@ def test_target_encoder_rejects_unexpected_labels(raw_telco_df):
     # OneHotEncoder(handle_unknown="ignore") elsewhere in the pipeline —
     # worth having a test that pins down which parts fail loud vs quiet.
     import pytest
+
     with pytest.raises(ValueError):
         encoder.transform(bad_labels)
