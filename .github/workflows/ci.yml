@@ -226,31 +226,33 @@ jobs:
 
       # ---- 3. Vulnerability scan (report-only for now) ----
 
-      # HIGH/CRITICAL CVEs that have a fix available, in OS packages and Python
-      # libraries. exit-code 0: findings are reported, they don't fail the run.
-      # continue-on-error: the scan is report-only, so a scanner problem (e.g.
-      # its download site being unreachable) must not block publishing either.
-      - name: Scan API image (Trivy)
+      # Trivy runs from its official container image, pinned to a version:
+      # no install script, no extra third-party action. Each image is handed
+      # over as a `docker save` archive, so the scanner never gets access to
+      # the Docker socket. Reports HIGH/CRITICAL CVEs that have a fix available
+      # (OS packages and Python libraries); --exit-code 0 = report-only.
+      # continue-on-error: a scanner problem must not block publishing.
+      - name: Scan images (Trivy)
         continue-on-error: true
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: telco-churn-api:dev
-          format: sarif
-          output: trivy-api.sarif
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: "0"
-
-      - name: Scan MLflow image (Trivy)
-        continue-on-error: true
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: telco-churn-mlflow:dev
-          format: sarif
-          output: trivy-mlflow.sarif
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: "0"
+        env:
+          TRIVY_IMAGE: ghcr.io/aquasecurity/trivy:0.76.1
+        run: |
+          for image in api mlflow; do
+            docker save "telco-churn-${image}:dev" --output "${image}.tar"
+            docker run --rm \
+              --volume "${PWD}:/work" \
+              --volume trivy-cache:/root/.cache/trivy \
+              "${TRIVY_IMAGE}" image \
+              --input "/work/${image}.tar" \
+              --scanners vuln \
+              --severity CRITICAL,HIGH \
+              --ignore-unfixed \
+              --exit-code 0 \
+              --format sarif \
+              --output "/work/trivy-${image}.sarif" \
+              || echo "::warning::Trivy scan of the ${image} image failed"
+            rm -f "${image}.tar"
+          done
 
       # Results appear under Security -> Code scanning, one category per image.
       # Skipped when the scan produced no report.
