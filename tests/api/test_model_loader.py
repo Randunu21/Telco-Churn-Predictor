@@ -5,8 +5,10 @@ from telco_churn.api.model_loader import (
     ParsedModelUri,
     _run_id_from_runs_uri,
     check_classes,
+    check_features,
     parse_model_uri,
 )
+from telco_churn.api.schemas import FEATURE_COLUMNS
 
 
 def test_alias_uri():
@@ -77,3 +79,30 @@ def test_check_classes_rejects_anything_else(classes):
 def test_check_classes_rejects_model_without_classes():
     with pytest.raises(ValueError):
         check_classes(object())
+
+
+class _ModelWithFeatures:
+    def __init__(self, names):
+        self.feature_names_in_ = names
+
+
+def test_check_features_returns_the_training_order():
+    training_order = list(reversed(FEATURE_COLUMNS))
+    assert check_features(_ModelWithFeatures(training_order)) == tuple(training_order)
+
+
+@pytest.mark.parametrize(
+    "names",
+    [
+        FEATURE_COLUMNS[:-1],  # a feature the API sends is missing
+        [*FEATURE_COLUMNS, "MonthlyCharges"],  # the model wants one the API lacks
+    ],
+)
+def test_check_features_rejects_a_different_feature_set(names):
+    with pytest.raises(ValueError, match="don't match"):
+        check_features(_ModelWithFeatures(names))
+
+
+def test_check_features_rejects_model_without_feature_names():
+    with pytest.raises(ValueError, match="feature_names_in_"):
+        check_features(object())

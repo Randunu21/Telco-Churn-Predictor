@@ -44,7 +44,9 @@ def predict(
     Single and batch endpoints both call this: a single prediction is just
     a batch of one.
     """
-    frame = customers_to_frame(customers)
+    # Reorder by NAME to the model's training order: the pipeline's recode
+    # step relabels columns by position (see model_loader.check_features).
+    frame = customers_to_frame(customers)[list(loaded_model.feature_columns)]
     # Column 1 = class 1 = "Yes" (churn); guaranteed by check_classes at load.
     scores = loaded_model.model.predict_proba(frame)[:, 1]
 

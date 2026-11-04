@@ -1,9 +1,13 @@
 import numpy as np
+import pandas as pd
 import pytest
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
 
 from telco_churn.api.inference import ModelOutputError, customers_to_frame, predict
-from telco_churn.api.model_loader import LoadedModel
+from telco_churn.api.model_loader import LoadedModel, check_features
 from telco_churn.api.schemas import FEATURE_COLUMNS, CustomerFeatures
+from telco_churn.features.preprocessing import build_preprocessor, recode_transformer
 
 
 class _RecordingModel:
@@ -19,7 +23,7 @@ class _RecordingModel:
         return np.column_stack([1 - self.positive_scores, self.positive_scores])
 
 
-def _loaded(model, version="7"):
+def _loaded(model, version="7", feature_columns=tuple(FEATURE_COLUMNS)):
     return LoadedModel(
         model=model,
         model_name="test-model",
@@ -27,6 +31,7 @@ def _loaded(model, version="7"):
         model_alias="champion",
         run_id="test-run",
         model_uri="models:/test-model@champion",
+        feature_columns=feature_columns,
     )
 
 
@@ -110,3 +115,58 @@ def test_non_finite_scores_raise_model_output_error(valid_customer_payload, bad_
         predict(
             _loaded(model), _customers(valid_customer_payload, ["A", "B", "C"]), 0.5
         )
+
+
+# --------------------------------------------------------- column order
+def test_model_receives_columns_in_its_training_order(valid_customer_payload):
+    training_order = tuple(reversed(FEATURE_COLUMNS))
+    model = _RecordingModel([0.3])
+    predict(
+        _loaded(model, feature_columns=training_order),
+        _customers(valid_customer_payload, ["A"]),
+        threshold=0.5,
+    )
+    assert tuple(model.received.columns) == training_order
+    # Matched by name: every value is still under its own column.
+    for column in FEATURE_COLUMNS:
+        assert model.received[column].iloc[0] == valid_customer_payload[column]
+
+
+def test_real_pipeline_trained_in_another_column_order(valid_customer_payload):
+    """Regression: the recode step relabels columns by position, so a model
+    trained on a different column order used to get swapped values (found by
+    the CI smoke test: 'unknown categories [Month-to-month]')."""
+    variants = [
+        {"Contract": "Month-to-month", "InternetService": "Fiber optic"},
+        {"Contract": "One year", "InternetService": "DSL", "TechSupport": "Yes"},
+        {"Contract": "Two year", "InternetService": "No"},
+        {"Contract": "Month-to-month", "InternetService": "DSL", "Partner": "No"},
+    ]
+    rows = []
+    for variant in variants:
+        row = {**valid_customer_payload, **variant}
+        if row["InternetService"] == "No":
+            for col in ("OnlineSecurity", "OnlineBackup", "DeviceProtection"):
+                row[col] = "No internet service"
+            for col in ("TechSupport", "StreamingTV", "StreamingMovies"):
+                row[col] = "No internet service"
+        rows.append(row)
+    training_order = list(reversed(FEATURE_COLUMNS))
+    X = pd.DataFrame(rows * 3)[training_order]
+    y = np.array([1, 0, 0, 1] * 3)
+    # The real recode + preprocessing steps (SMOTENC is skipped at inference
+    # anyway, and needs more rows than this test has).
+    model = Pipeline(
+        [
+            ("recode", recode_transformer),
+            ("preprocessor", build_preprocessor()),
+            ("classifier", LogisticRegression()),
+        ]
+    ).fit(X, y)
+
+    loaded = _loaded(model, feature_columns=check_features(model))
+    customer = _customers(valid_customer_payload, ["A"])
+    result = predict(loaded, customer, threshold=0.5)[0]
+
+    expected = model.predict_proba(customers_to_frame(customer)[training_order])[0, 1]
+    assert result.churn_score == pytest.approx(expected)

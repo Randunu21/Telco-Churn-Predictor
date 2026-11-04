@@ -12,6 +12,8 @@ import mlflow
 import mlflow.sklearn
 from mlflow import MlflowClient
 
+from telco_churn.api.schemas import FEATURE_COLUMNS
+
 logger = logging.getLogger(__name__)
 
 # Placeholder metadata when model_uri is not a registry URI (runs:/ or a path)
@@ -44,6 +46,9 @@ class LoadedModel:
     model_alias: str | None
     run_id: str
     model_uri: str
+    # The model's training column order. Inference reorders every request to
+    # it (see check_features). Defaults to the schema order for test doubles.
+    feature_columns: tuple[str, ...] = tuple(FEATURE_COLUMNS)
 
 
 def parse_model_uri(model_uri: str) -> ParsedModelUri:
@@ -102,6 +107,32 @@ def check_classes(model: Any) -> None:
         )
 
 
+def check_features(model: Any) -> tuple[str, ...]:
+    """Fail fast unless the model was trained on exactly the API's features.
+
+    Returns the model's training column order. The pipeline must receive its
+    columns in that order: its first step (the recode FunctionTransformer)
+    relabels columns by POSITION with the names it saw in training, so a
+    request in any other order would have its values silently swapped between
+    columns. Inference therefore reorders every request to this order.
+    """
+    names = getattr(model, "feature_names_in_", None)
+    if names is None:
+        raise ValueError(
+            "Model has no feature_names_in_ (was it trained on a bare array?). "
+            "Refusing to serve: column order can't be verified."
+        )
+    names = tuple(str(name) for name in names)
+    missing = sorted(set(FEATURE_COLUMNS) - set(names))
+    unexpected = sorted(set(names) - set(FEATURE_COLUMNS))
+    if missing or unexpected:
+        raise ValueError(
+            "Model features don't match the API schema. "
+            f"Missing from the model: {missing}; unknown to the API: {unexpected}."
+        )
+    return names
+
+
 def load_model(model_uri: str, tracking_uri: str) -> LoadedModel:
     """Resolve the model's metadata, load it, and return both.
 
@@ -133,6 +164,7 @@ def load_model(model_uri: str, tracking_uri: str) -> LoadedModel:
 
     model = mlflow.sklearn.load_model(load_uri)
     check_classes(model)
+    feature_columns = check_features(model)
 
     logger.info(
         "Loaded model %s version %s (alias=%s, run_id=%s) from %s",
@@ -149,4 +181,5 @@ def load_model(model_uri: str, tracking_uri: str) -> LoadedModel:
         model_alias=alias,
         run_id=run_id,
         model_uri=model_uri,
+        feature_columns=feature_columns,
     )
