@@ -1,0 +1,304 @@
+# CI: lint, lockfile check, tests, then build -> smoke-test -> publish the images.
+# Pushes to Dev/main publish the images that passed the smoke test; PRs into
+# main run everything except the publish.
+
+# Third-party actions are pinned to full commit SHAs (tags can be moved to
+# point at other code; a commit can't). Dependabot keeps the SHAs current.
+
+name: CI
+
+on:
+  push:
+    branches: [Dev, main] # case-sensitive: "Dev", not "dev"
+  pull_request:
+    branches: [main] # PRs *into* main (tests the merge result)
+  workflow_dispatch: # manual "Run workflow" button (appears once this file is on main)
+
+# One run per branch/PR: a newer push cancels the older run still in progress.
+# Runs on main are never cancelled, so every commit on main gets a result.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# Least privilege: read the repo, nothing else. Jobs that need more ask for it.
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12" # keep in step with the Docker base images and scripts/lock.sh
+  UV_SYSTEM_PYTHON: "1" # uv installs into the runner's Python (throwaway VM, no venv needed)
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  MLFLOW_DISABLE_TELEMETRY: "true"
+
+jobs:
+  lint:
+    name: Lint, format and lockfiles
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # Tool versions come from the dev lock, so they are pinned in one place only.
+      - name: Install uv and ruff (versions from requirements/dev.txt)
+        run: |
+          python -m pip install "$(grep -E '^uv==' requirements/dev.txt)"
+          uv pip install "$(grep -E '^ruff==' requirements/dev.txt)"
+
+      - name: Ruff lint
+        run: ruff check --output-format=github .
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+      - name: Lockfiles match the .in files
+        run: |
+          scripts/lock.sh
+          if ! git diff --exit-code -- requirements/; then
+            echo "::error::Lockfiles are out of date. Run scripts/lock.sh and commit the result."
+            exit 1
+          fi
+
+  test:
+    name: Tests (pytest)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv (version from requirements/dev.txt)
+        run: python -m pip install "$(grep -E '^uv==' requirements/dev.txt)"
+
+      # Exactly the dev lock, then our package without dependencies (all pinned above).
+      - name: Install dependencies and the package
+        run: |
+          uv pip install -r requirements/dev.txt
+          uv pip install --no-deps -e .
+
+      - name: Run tests with coverage
+        run: >-
+          python -m pytest
+          --cov=telco_churn
+          --cov-report=term-missing
+          --cov-fail-under=85
+
+  images:
+    name: Build, smoke-test and publish images
+    needs: [lint, test] # only build code that passed lint and tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    # Job-level permissions REPLACE the workflow-level ones, so contents: read is
+    # restated here; packages: write lets GITHUB_TOKEN push to ghcr.io.
+    permissions:
+      contents: read
+      packages: write
+      security-events: write # upload Trivy results to the Security tab
+    env:
+      # Registry names must be lowercase, so these are written out, not derived
+      # from the (mixed-case) GitHub username or repo name.
+      API_IMAGE: ghcr.io/randunu21/telco-churn-api
+      MLFLOW_IMAGE: ghcr.io/randunu21/telco-churn-mlflow
+      # Seeding runs on the runner and talks to the Compose MLflow (published
+      # on 127.0.0.1:5000); training reads the synthetic CSV instead of the
+      # DVC dataset.
+      MLFLOW_TRACKING_URI: http://127.0.0.1:5000
+      DATA_RAW_PATH: ${{ github.workspace }}/.smoke/telco_smoke.csv
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # ---- 1. Build both images into the runner's Docker (not pushed yet) ----
+
+      # BuildKit builder that can export layer caches to GitHub's cache service.
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Tags (and OCI labels, including the one linking the package to this repo):
+      #   sha-<short commit>  every build; never moves (deploy these)
+      #   dev                 latest from Dev
+      #   main, latest        latest from main
+      - name: API image tags and labels
+        id: meta-api
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.API_IMAGE }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/Dev' }}
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: MLflow image tags and labels
+        id: meta-mlflow
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.MLFLOW_IMAGE }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/Dev' }}
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      # load: true puts each image into the runner's Docker, so the smoke test
+      # runs these exact images and the publish step pushes these exact images.
+      # The extra local tag is the name compose.yaml uses. provenance: false
+      # because the local Docker image store can't hold attestations.
+      # mode=max caches every stage (incl. the API builder stage with the ~1 GB
+      # dependency install); one cache scope per image; ignore-error so a
+      # cache-service hiccup can't fail the build.
+      - name: Build API image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: docker/api.Dockerfile
+          load: true
+          provenance: false
+          tags: |
+            ${{ steps.meta-api.outputs.tags }}
+            telco-churn-api:dev
+          labels: ${{ steps.meta-api.outputs.labels }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max,ignore-error=true
+
+      - name: Build MLflow image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: docker/mlflow.Dockerfile
+          load: true
+          provenance: false
+          tags: |
+            ${{ steps.meta-mlflow.outputs.tags }}
+            telco-churn-mlflow:dev
+          labels: ${{ steps.meta-mlflow.outputs.labels }}
+          cache-from: type=gha,scope=mlflow
+          cache-to: type=gha,scope=mlflow,mode=max,ignore-error=true
+
+      # ---- 2. Smoke test: the real stack, from the images just built ----
+
+      # compose.env is git-ignored; make a throwaway one from the template.
+      - name: Create compose.env with a throwaway password
+        run: |
+          password="$(openssl rand -hex 24)"
+          echo "::add-mask::${password}"
+          sed "s/<change-me>/${password}/g" compose.env.example > compose.env
+
+      - name: Start Postgres and MLflow
+        run: docker compose up --detach --no-build --wait --wait-timeout 180 postgres mlflow
+
+      # The API refuses to start without telco-churn@champion, so train and
+      # register one first (on the runner, with the dev lock).
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies for seeding
+        run: |
+          python -m pip install "$(grep -E '^uv==' requirements/dev.txt)"
+          uv pip install -r requirements/dev.txt
+          uv pip install --no-deps -e .
+
+      - name: Seed a champion model (synthetic data)
+        run: |
+          python scripts/smoke/make_data.py "$DATA_RAW_PATH"
+          python scripts/smoke/seed_champion.py
+
+      - name: Start the API
+        run: docker compose up --detach --no-build --wait --wait-timeout 180 api
+
+      - name: Check the API contract
+        run: scripts/smoke/check_api.sh http://localhost:8000
+
+      - name: Container status and logs (on failure)
+        if: failure()
+        run: |
+          docker compose ps --all
+          docker compose logs --no-color --timestamps
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose down --volumes
+
+      # ---- 3. Vulnerability scan (report-only for now) ----
+
+      # Trivy runs from its official container image, pinned to a version:
+      # no install script, no extra third-party action. Each image is handed
+      # over as a `docker save` archive, so the scanner never gets access to
+      # the Docker socket. Reports HIGH/CRITICAL CVEs that have a fix available
+      # (OS packages and Python libraries); --exit-code 0 = report-only.
+      # continue-on-error: a scanner problem must not block publishing.
+      - name: Scan images (Trivy)
+        continue-on-error: true
+        env:
+          TRIVY_IMAGE: ghcr.io/aquasecurity/trivy:0.76.1
+        run: |
+          for image in api mlflow; do
+            docker save "telco-churn-${image}:dev" --output "${image}.tar"
+            docker run --rm \
+              --volume "${PWD}:/work" \
+              --volume trivy-cache:/root/.cache/trivy \
+              "${TRIVY_IMAGE}" image \
+              --input "/work/${image}.tar" \
+              --scanners vuln \
+              --severity CRITICAL,HIGH \
+              --ignore-unfixed \
+              --exit-code 0 \
+              --format sarif \
+              --output "/work/trivy-${image}.sarif" \
+              || echo "::warning::Trivy scan of the ${image} image failed"
+            rm -f "${image}.tar"
+          done
+
+      # Results appear under Security -> Code scanning, one category per image.
+      # Skipped when the scan produced no report.
+      - name: Upload API scan results
+        if: github.event_name == 'push' && hashFiles('trivy-api.sarif') != ''
+        uses: github/codeql-action/upload-sarif@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4.39.2
+        with:
+          sarif_file: trivy-api.sarif
+          category: trivy-api
+
+      - name: Upload MLflow scan results
+        if: github.event_name == 'push' && hashFiles('trivy-mlflow.sarif') != ''
+        uses: github/codeql-action/upload-sarif@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4.39.2
+        with:
+          sarif_file: trivy-mlflow.sarif
+          category: trivy-mlflow
+
+      # ---- 4. Publish: only pushes, only after the smoke test passed ----
+
+      - name: Log in to ghcr.io
+        if: github.event_name == 'push'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Pushes every ghcr.io tag of the tested images (the local compose tags
+      # have a different name, so they stay local).
+      - name: Push images
+        if: github.event_name == 'push'
+        run: |
+          docker push --all-tags "$API_IMAGE"
+          docker push --all-tags "$MLFLOW_IMAGE"
+
+      - name: Publish summary
+        if: github.event_name == 'push'
+        run: |
+          {
+            echo "### Published (smoke-tested)"
+            echo '```'
+            for image in "$API_IMAGE" "$MLFLOW_IMAGE"; do
+              docker image inspect \
+                --format '{{range .RepoTags}}{{println .}}{{end}}{{range .RepoDigests}}{{println .}}{{end}}' \
+                "$(docker image ls --quiet "$image" | head -n 1)" | grep "^${image}"
+            done
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+           

@@ -1,0 +1,94 @@
+# Telco Churn stack: Postgres (MLflow backend) + MLflow tracking server + churn API.
+#
+# Role: local development, reviewers ("docker compose up") and CI integration
+# tests. Kubernetes (Phase 7) is the deployment target; keep env vars and ports
+# here as the reference when writing the K8s manifests.
+#
+# Setup:   cp compose.env.example compose.env   (then set a real password)
+# Start:   docker compose up -d --build
+# Status:  docker compose ps
+# Stop:    docker compose down        (keeps the volumes = your data)
+# DANGER:  docker compose down -v     (DELETES the database and all models)
+
+name: telco-churn
+
+services:
+  postgres:
+    image: postgres:18-bookworm
+    env_file: compose.env # POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB (first start only)
+    volumes:
+      # Postgres 18+ images keep data under /var/lib/postgresql/<major>/docker.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      # $$ = literal $, so the shell INSIDE the container expands the variables
+      # (a single $ would be filled in by Compose from your host shell).
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    # No ports: only reachable by other services on the Compose network.
+
+  mlflow:
+    build:
+      context: .
+      dockerfile: docker/mlflow.Dockerfile
+    image: telco-churn-mlflow:dev
+    env_file: compose.env # provides MLFLOW_BACKEND_STORE_URI (postgresql+psycopg://...)
+    environment:
+      # Host headers MLflow accepts (replaces its defaults):
+      #   mlflow:5000          -> the API and other services on this network
+      #   localhost / 127.0.0.1 -> your browser via the published port, and
+      #                            the healthcheck below (127.0.0.1:5000)
+      MLFLOW_SERVER_ALLOWED_HOSTS: "mlflow:5000,localhost,localhost:*,127.0.0.1,127.0.0.1:*"
+    volumes:
+      - mlartifacts:/mlflow/artifacts
+    ports:
+      # Loopback only: MLflow has no authentication, and Docker-published
+      # ports bypass host firewalls such as ufw.
+      - "127.0.0.1:5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3).status == 200 else 1)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s # measured startup: 17-20 s (two workers)
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    image: telco-churn-api:dev
+    # No env_file on purpose: the API never needs the database password.
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      # MODEL_URI defaults to models:/telco-churn@champion (config.py).
+    ports:
+      - "8000:8000"
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3).status == 200 else 1)"
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s # measured model load: ~4.3 s
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  mlartifacts:

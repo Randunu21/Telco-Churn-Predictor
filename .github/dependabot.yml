@@ -1,0 +1,26 @@
+# Dependabot: weekly PRs that bump the SHA-pinned GitHub Actions in
+# .github/workflows/ (it updates the SHA and the "# vX.Y.Z" comment together).
+#
+# Deliberately NOT covered:
+# - Python packages: the three lockfiles are compiled together by
+#   scripts/lock.sh (API and server locks constrained to the dev lock).
+#   Dependabot would bump single pins and break that chain. Upgrade with
+#   `scripts/lock.sh --upgrade` instead, then test and open a PR.
+# - Docker base images: python:3.12-slim-bookworm and postgres:18-bookworm are
+#   moving tags that receive OS security patches upstream; every CI build
+#   re-resolves them, so patches arrive without a version bump.
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Colombo
+    # One PR per week for all action updates, instead of one per action.
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci

@@ -1,0 +1,7 @@
+-r base.in
+-r model.in
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+#API uses mlflow-skinny because it only needs the client (registry lookup and model download), 
+#and that the version must match the MLflow server.
+mlflow-skinny==3.15.2
