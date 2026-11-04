@@ -228,7 +228,10 @@ jobs:
 
       # HIGH/CRITICAL CVEs that have a fix available, in OS packages and Python
       # libraries. exit-code 0: findings are reported, they don't fail the run.
+      # continue-on-error: the scan is report-only, so a scanner problem (e.g.
+      # its download site being unreachable) must not block publishing either.
       - name: Scan API image (Trivy)
+        continue-on-error: true
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: telco-churn-api:dev
@@ -239,6 +242,7 @@ jobs:
           exit-code: "0"
 
       - name: Scan MLflow image (Trivy)
+        continue-on-error: true
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: telco-churn-mlflow:dev
@@ -249,15 +253,16 @@ jobs:
           exit-code: "0"
 
       # Results appear under Security -> Code scanning, one category per image.
+      # Skipped when the scan produced no report.
       - name: Upload API scan results
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && hashFiles('trivy-api.sarif') != ''
         uses: github/codeql-action/upload-sarif@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4.39.2
         with:
           sarif_file: trivy-api.sarif
           category: trivy-api
 
       - name: Upload MLflow scan results
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && hashFiles('trivy-mlflow.sarif') != ''
         uses: github/codeql-action/upload-sarif@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4.39.2
         with:
           sarif_file: trivy-mlflow.sarif
