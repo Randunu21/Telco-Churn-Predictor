@@ -2,6 +2,9 @@
 # Pushes to Dev/main publish the images that passed the smoke test; PRs into
 # main run everything except the publish.
 
+# Third-party actions are pinned to full commit SHAs (tags can be moved to
+# point at other code; a commit can't). Dependabot keeps the SHAs current.
+
 name: CI
 
 on:
@@ -33,9 +36,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -64,9 +67,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -96,6 +99,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write # upload Trivy results to the Security tab
     env:
       # Registry names must be lowercase, so these are written out, not derived
       # from the (mixed-case) GitHub username or repo name.
@@ -107,12 +111,12 @@ jobs:
       MLFLOW_TRACKING_URI: http://127.0.0.1:5000
       DATA_RAW_PATH: ${{ github.workspace }}/.smoke/telco_smoke.csv
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # ---- 1. Build both images into the runner's Docker (not pushed yet) ----
 
       # BuildKit builder that can export layer caches to GitHub's cache service.
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       # Tags (and OCI labels, including the one linking the package to this repo):
       #   sha-<short commit>  every build; never moves (deploy these)
@@ -120,7 +124,7 @@ jobs:
       #   main, latest        latest from main
       - name: API image tags and labels
         id: meta-api
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.API_IMAGE }}
           tags: |
@@ -131,7 +135,7 @@ jobs:
 
       - name: MLflow image tags and labels
         id: meta-mlflow
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.MLFLOW_IMAGE }}
           tags: |
@@ -148,7 +152,7 @@ jobs:
       # dependency install); one cache scope per image; ignore-error so a
       # cache-service hiccup can't fail the build.
       - name: Build API image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: docker/api.Dockerfile
@@ -162,7 +166,7 @@ jobs:
           cache-to: type=gha,scope=api,mode=max,ignore-error=true
 
       - name: Build MLflow image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: docker/mlflow.Dockerfile
@@ -189,7 +193,7 @@ jobs:
 
       # The API refuses to start without telco-churn@champion, so train and
       # register one first (on the runner, with the dev lock).
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -220,11 +224,50 @@ jobs:
         if: always()
         run: docker compose down --volumes
 
-      # ---- 3. Publish: only pushes, only after the smoke test passed ----
+      # ---- 3. Vulnerability scan (report-only for now) ----
+
+      # HIGH/CRITICAL CVEs that have a fix available, in OS packages and Python
+      # libraries. exit-code 0: findings are reported, they don't fail the run.
+      - name: Scan API image (Trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: telco-churn-api:dev
+          format: sarif
+          output: trivy-api.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "0"
+
+      - name: Scan MLflow image (Trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: telco-churn-mlflow:dev
+          format: sarif
+          output: trivy-mlflow.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "0"
+
+      # Results appear under Security -> Code scanning, one category per image.
+      - name: Upload API scan results
+        if: github.event_name == 'push'
+        uses: github/codeql-action/upload-sarif@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4.39.2
+        with:
+          sarif_file: trivy-api.sarif
+          category: trivy-api
+
+      - name: Upload MLflow scan results
+        if: github.event_name == 'push'
+        uses: github/codeql-action/upload-sarif@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4.39.2
+        with:
+          sarif_file: trivy-mlflow.sarif
+          category: trivy-mlflow
+
+      # ---- 4. Publish: only pushes, only after the smoke test passed ----
 
       - name: Log in to ghcr.io
         if: github.event_name == 'push'
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

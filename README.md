@@ -1,5 +1,7 @@
 # Telco Churn Predictor
 
+[![CI](https://github.com/Randunu21/Telco-Churn-Predictor/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Randunu21/Telco-Churn-Predictor/actions/workflows/ci.yml)
+
 An end-to-end MLOps portfolio project: a customer-churn model for the Kaggle
 Telco Customer Churn dataset, built as a production-style system rather than a
 notebook. The focus is the engineering around the model: versioned data,
@@ -19,8 +21,8 @@ Databricks) are used.
 | 3 | Testing: pytest suite (data, model and API tests) | Done |
 | 4 | Serving: FastAPI + Pydantic, model loaded from the MLflow registry | Done |
 | 5 | Containers: multi-stage Docker images, Docker Compose stack | Done |
-| 6 | CI/CD: ruff lint/format, uv lockfiles, GitHub Actions, images pushed to ghcr.io | In progress |
-| 7 | Kubernetes: k3s, ingress-nginx, cert-manager | Planned |
+| 6 | CI/CD: GitHub Actions (ruff, uv lock check, pytest, image build, Compose smoke test, Trivy scan), smoke-tested images published to ghcr.io | Done |
+| 7 | Kubernetes: k3s, ingress-nginx, cert-manager | Next |
 | 8 | Airflow retraining pipeline | Planned |
 | 9 | Monitoring: Prometheus + Grafana | Planned |
 | 10 | Deployment: local k3s, optional VPS | Planned |
