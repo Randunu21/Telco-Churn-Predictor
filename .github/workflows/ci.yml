@@ -1,6 +1,6 @@
-# CI: lint, lockfile check, tests, image builds and ghcr.io publishing.
-# Pushes to Dev/main publish images; PRs into main only build them.
-# The Compose smoke test is added in a later step.
+# CI: lint, lockfile check, tests, then build -> smoke-test -> publish the images.
+# Pushes to Dev/main publish the images that passed the smoke test; PRs into
+# main run everything except the publish.
 
 name: CI
 
@@ -86,26 +86,30 @@ jobs:
           --cov-report=term-missing
           --cov-fail-under=85
 
-  build:
-    name: Build and publish image (${{ matrix.image }})
+  images:
+    name: Build, smoke-test and publish images
     needs: [lint, test] # only build code that passed lint and tests
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     # Job-level permissions REPLACE the workflow-level ones, so contents: read is
     # restated here; packages: write lets GITHUB_TOKEN push to ghcr.io.
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: false # if one image fails, still finish the other (two results, not one)
-      matrix:
-        image: [api, mlflow] # -> docker/api.Dockerfile, docker/mlflow.Dockerfile
     env:
-      # Registry names must be lowercase, so this is written out, not derived
+      # Registry names must be lowercase, so these are written out, not derived
       # from the (mixed-case) GitHub username or repo name.
-      IMAGE: ghcr.io/randunu21/telco-churn-${{ matrix.image }}
+      API_IMAGE: ghcr.io/randunu21/telco-churn-api
+      MLFLOW_IMAGE: ghcr.io/randunu21/telco-churn-mlflow
+      # Seeding runs on the runner and talks to the Compose MLflow (published
+      # on 127.0.0.1:5000); training reads the synthetic CSV instead of the
+      # DVC dataset.
+      MLFLOW_TRACKING_URI: http://127.0.0.1:5000
+      DATA_RAW_PATH: ${{ github.workspace }}/.smoke/telco_smoke.csv
     steps:
       - uses: actions/checkout@v7
+
+      # ---- 1. Build both images into the runner's Docker (not pushed yet) ----
 
       # BuildKit builder that can export layer caches to GitHub's cache service.
       - uses: docker/setup-buildx-action@v4
@@ -114,19 +118,110 @@ jobs:
       #   sha-<short commit>  every build; never moves (deploy these)
       #   dev                 latest from Dev
       #   main, latest        latest from main
-      - name: Image tags and labels
-        id: meta
+      - name: API image tags and labels
+        id: meta-api
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.IMAGE }}
+          images: ${{ env.API_IMAGE }}
           tags: |
             type=sha,prefix=sha-
             type=raw,value=dev,enable=${{ github.ref == 'refs/heads/Dev' }}
             type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
-      # Only pushes publish (the workflow's push trigger is limited to Dev and
-      # main); pull requests and manual runs just build.
+      - name: MLflow image tags and labels
+        id: meta-mlflow
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.MLFLOW_IMAGE }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/Dev' }}
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      # load: true puts each image into the runner's Docker, so the smoke test
+      # runs these exact images and the publish step pushes these exact images.
+      # The extra local tag is the name compose.yaml uses. provenance: false
+      # because the local Docker image store can't hold attestations.
+      # mode=max caches every stage (incl. the API builder stage with the ~1 GB
+      # dependency install); one cache scope per image; ignore-error so a
+      # cache-service hiccup can't fail the build.
+      - name: Build API image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/api.Dockerfile
+          load: true
+          provenance: false
+          tags: |
+            ${{ steps.meta-api.outputs.tags }}
+            telco-churn-api:dev
+          labels: ${{ steps.meta-api.outputs.labels }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max,ignore-error=true
+
+      - name: Build MLflow image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/mlflow.Dockerfile
+          load: true
+          provenance: false
+          tags: |
+            ${{ steps.meta-mlflow.outputs.tags }}
+            telco-churn-mlflow:dev
+          labels: ${{ steps.meta-mlflow.outputs.labels }}
+          cache-from: type=gha,scope=mlflow
+          cache-to: type=gha,scope=mlflow,mode=max,ignore-error=true
+
+      # ---- 2. Smoke test: the real stack, from the images just built ----
+
+      # compose.env is git-ignored; make a throwaway one from the template.
+      - name: Create compose.env with a throwaway password
+        run: |
+          password="$(openssl rand -hex 24)"
+          echo "::add-mask::${password}"
+          sed "s/<change-me>/${password}/g" compose.env.example > compose.env
+
+      - name: Start Postgres and MLflow
+        run: docker compose up --detach --no-build --wait --wait-timeout 180 postgres mlflow
+
+      # The API refuses to start without telco-churn@champion, so train and
+      # register one first (on the runner, with the dev lock).
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies for seeding
+        run: |
+          python -m pip install "$(grep -E '^uv==' requirements/dev.txt)"
+          uv pip install -r requirements/dev.txt
+          uv pip install --no-deps -e .
+
+      - name: Seed a champion model (synthetic data)
+        run: |
+          python scripts/smoke/make_data.py "$DATA_RAW_PATH"
+          python scripts/smoke/seed_champion.py
+
+      - name: Start the API
+        run: docker compose up --detach --no-build --wait --wait-timeout 180 api
+
+      - name: Check the API contract
+        run: scripts/smoke/check_api.sh http://localhost:8000
+
+      - name: Container status and logs (on failure)
+        if: failure()
+        run: |
+          docker compose ps --all
+          docker compose logs --no-color --timestamps
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose down --volumes
+
+      # ---- 3. Publish: only pushes, only after the smoke test passed ----
+
       - name: Log in to ghcr.io
         if: github.event_name == 'push'
         uses: docker/login-action@v4
@@ -135,34 +230,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build (and push) ${{ matrix.image }} image
-        id: build
-        uses: docker/build-push-action@v7
-        with:
-          context: . # repo root, like `docker build -f docker/... .`
-          file: docker/${{ matrix.image }}.Dockerfile
-          push: ${{ github.event_name == 'push' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          # mode=max caches every stage, including the API builder stage where
-          # the ~1 GB dependency install happens. One cache scope per image, so
-          # the two matrix jobs don't overwrite each other's cache.
-          # ignore-error: a cache-service hiccup must not fail the build.
-          cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,scope=${{ matrix.image }},mode=max,ignore-error=true
+      # Pushes every ghcr.io tag of the tested images (the local compose tags
+      # have a different name, so they stay local).
+      - name: Push images
+        if: github.event_name == 'push'
+        run: |
+          docker push --all-tags "$API_IMAGE"
+          docker push --all-tags "$MLFLOW_IMAGE"
 
-      # What was published, on the run's Summary page. Values go through env
-      # vars rather than being pasted into the script (safer shell habit).
       - name: Publish summary
         if: github.event_name == 'push'
-        env:
-          TAGS: ${{ steps.meta.outputs.tags }}
-          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           {
-            echo "### Published ${IMAGE}"
+            echo "### Published (smoke-tested)"
             echo '```'
-            echo "${TAGS}"
+            for image in "$API_IMAGE" "$MLFLOW_IMAGE"; do
+              docker image inspect \
+                --format '{{range .RepoTags}}{{println .}}{{end}}{{range .RepoDigests}}{{println .}}{{end}}' \
+                "$(docker image ls --quiet "$image" | head -n 1)" | grep "^${image}"
+            done
             echo '```'
-            echo "Digest: \`${DIGEST}\`"
           } >> "$GITHUB_STEP_SUMMARY"
+           
