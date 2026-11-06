@@ -22,7 +22,7 @@ certifi==2026.10.23
     #   -c requirements/dev.txt
     #   databricks-sdk
     #   requests
-cffi==2.1.1
+cffi==2.1.1 ; platform_python_implementation != 'PyPy'
     # via
     #   -c requirements/dev.txt
     #   cryptography
@@ -109,7 +109,7 @@ numpy==2.5.2
     #   scipy
     #   skops
     #   xgboost
-nvidia-nccl-cu13==2.32.3
+nvidia-nccl-cu13==2.32.3 ; sys_platform == 'linux'
     # via
     #   -c requirements/dev.txt
     #   xgboost
@@ -158,7 +158,7 @@ pyasn1-modules==0.4.2
     # via
     #   -c requirements/dev.txt
     #   google-auth
-pycparser==3.12
+pycparser==3.12 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
     # via
     #   -c requirements/dev.txt
     #   cffi
@@ -279,7 +279,7 @@ uvicorn==0.52.4
     #   -c requirements/dev.txt
     #   -r requirements/api.in
     #   mlflow-skinny
-uvloop==0.23.0
+uvloop==0.23.0 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via
     #   -c requirements/dev.txt
     #   uvicorn

@@ -19,8 +19,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # Shared by all three compiles. Keep the Python version in step with the
-# Docker base images and CI.
-COMMON=(--python-version 3.12 --custom-compile-command "scripts/lock.sh" --quiet)
+# Docker base images and CI. --universal writes one lock for every platform
+# (Linux in CI and Docker, macOS for local dev): platform-only packages get
+# environment markers instead of being pinned unconditionally.
+COMMON=(--universal --python-version 3.12 --custom-compile-command "scripts/lock.sh" --quiet)
 
 uv pip compile requirements/dev.in "${COMMON[@]}" -o requirements/dev.txt "$@"
 

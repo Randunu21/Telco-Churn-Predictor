@@ -99,7 +99,10 @@ cloudpickle==3.1.2
     #   joblib
     #   mlflow-skinny
 colorama==0.4.6
-    # via dvc
+    # via
+    #   dvc
+    #   pytest
+    #   tqdm
 configobj==5.0.9
     # via dvc
 contourpy==1.4.0
@@ -215,7 +218,7 @@ graphql-relay==3.2.0
     # via graphene
 gto==1.10.1
     # via dvc
-gunicorn==26.2.0
+gunicorn==26.2.0 ; sys_platform != 'win32'
     # via mlflow
 h11==0.16.0
     # via
@@ -309,7 +312,7 @@ numpy==2.5.2
     #   scipy
     #   skops
     #   xgboost
-nvidia-nccl-cu13==2.32.3
+nvidia-nccl-cu13==2.32.3 ; sys_platform == 'linux'
     # via xgboost
 omegaconf==2.3.1
     # via
@@ -331,7 +334,7 @@ opentelemetry-sdk==1.45.2
     #   mlflow-tracing
 opentelemetry-semantic-conventions==0.66b2
     # via opentelemetry-sdk
-orjson==3.13.0
+orjson==3.13.0 ; implementation_name == 'cpython'
     # via
     #   dvc-data
     #   sqltrie
@@ -387,7 +390,7 @@ pyasn1==0.6.5
     # via pyasn1-modules
 pyasn1-modules==0.4.2
     # via google-auth
-pycparser==3.12
+pycparser==3.12 ; implementation_name != 'PyPy'
     # via cffi
 pydantic==2.13.4
     # via
@@ -446,6 +449,10 @@ python-dotenv==1.2.3
     #   uvicorn
 pytz==2026.6
     # via pandas
+pywin32==312 ; sys_platform == 'win32'
+    # via
+    #   docker
+    #   dvc-task
 pyyaml==6.0.3
     # via
     #   mlflow-skinny
@@ -569,7 +576,10 @@ typing-inspection==0.4.4
     #   pydantic
     #   pydantic-settings
 tzdata==2026.6
-    # via pandas
+    # via
+    #   kombu
+    #   pandas
+    #   tzlocal
 tzlocal==5.4.5
     # via celery
 urllib3==2.8.0
@@ -585,7 +595,7 @@ uvicorn==0.52.4
     # via
     #   -r requirements/api.in
     #   mlflow-skinny
-uvloop==0.23.0
+uvloop==0.23.0 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn
 vine==5.1.0
     # via
@@ -596,6 +606,8 @@ voluptuous==0.16.0
     # via
     #   dvc
     #   dvc-studio-client
+waitress==3.0.2 ; sys_platform == 'win32'
+    # via mlflow
 watchfiles==1.3.0
     # via uvicorn
 wcwidth==0.9.4

@@ -46,7 +46,7 @@ certifi==2026.10.23
     #   -c requirements/dev.txt
     #   databricks-sdk
     #   requests
-cffi==2.1.1
+cffi==2.1.1 ; platform_python_implementation != 'PyPy'
     # via
     #   -c requirements/dev.txt
     #   cryptography
@@ -134,7 +134,7 @@ graphql-relay==3.2.0
     # via
     #   -c requirements/dev.txt
     #   graphene
-gunicorn==26.2.0
+gunicorn==26.2.0 ; sys_platform != 'win32'
     # via
     #   -c requirements/dev.txt
     #   mlflow
@@ -284,7 +284,7 @@ pyasn1-modules==0.4.2
     # via
     #   -c requirements/dev.txt
     #   google-auth
-pycparser==3.12
+pycparser==3.12 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
     # via
     #   -c requirements/dev.txt
     #   cffi
@@ -316,6 +316,10 @@ pytz==2026.6
     # via
     #   -c requirements/dev.txt
     #   pandas
+pywin32==312 ; sys_platform == 'win32'
+    # via
+    #   -c requirements/dev.txt
+    #   docker
 pyyaml==6.0.3
     # via
     #   -c requirements/dev.txt
@@ -404,6 +408,10 @@ uvicorn==0.52.4
     # via
     #   -c requirements/dev.txt
     #   mlflow-skinny
+waitress==3.0.2 ; sys_platform == 'win32'
+    # via
+    #   -c requirements/dev.txt
+    #   mlflow
 wcwidth==0.9.4
     # via
     #   -c requirements/dev.txt
