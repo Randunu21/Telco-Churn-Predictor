@@ -13,13 +13,9 @@ dist/
 venv/
 .venv/
 
-# Data (DVC-tracked, not git-tracked)
-data/raw/*
-data/processed/*
-!data/raw/.gitkeep
-!data/processed/.gitkeep
-!data/raw/*.dvc
-!data/processed/*.dvc
+# Data: DVC keeps a .gitignore next to each file it tracks (e.g.
+# data/raw/.gitignore), written automatically by `dvc add`. Don't add
+# folder-wide patterns here: DVC skips .dvc files under them.
 
 # MLflow local tracking
 mlruns/
