@@ -1,0 +1,49 @@
+# Local development cluster: k3s running in Docker via k3d (Phase 7).
+#
+# Create:   k3d cluster create --config k8s/cluster/k3d-local.yaml
+# Stop:     k3d cluster stop telco-churn     (frees RAM, keeps all state)
+# Start:    k3d cluster start telco-churn
+# DANGER:   k3d cluster delete telco-churn   (deletes the cluster AND its
+#           volumes: MLflow runs, the registry and the champion are gone;
+#           everything else rebuilds from Git, ghcr.io and DVC)
+#
+# Shape: 1 server + 1 agent. In k3s the server also runs workloads, so pods
+# can still spread over two nodes. Each node keeps its own image store, so
+# every extra node costs disk.
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: telco-churn # kubeconfig context becomes "k3d-telco-churn"
+servers: 1
+agents: 1
+
+# Pinned k3s release (stable channel, Kubernetes 1.37). Bump on purpose,
+# never implicitly. kubectl must stay within one minor version (1.36-1.38).
+image: rancher/k3s:v1.37.2-k3s1
+
+kubeAPI:
+  # Kubernetes API only on this Mac, never on the network.
+  hostIP: "127.0.0.1"
+  hostPort: "6550"
+
+ports:
+  # Host -> k3d load balancer -> Traefik (cluster ports 80/443).
+  # High host ports avoid sudo and clash with Compose (8000, 5000).
+  # Loopback only, like MLflow in compose.yaml.
+  - port: 127.0.0.1:8080:80
+    nodeFilters:
+      - loadbalancer
+  - port: 127.0.0.1:8443:443
+    nodeFilters:
+      - loadbalancer
+
+options:
+  k3d:
+    wait: true
+    timeout: "180s" # first start pulls images; amd64 emulation makes it slower
+  # k3s defaults kept on purpose: Traefik (our Gateway API implementation,
+  # step 7.5), metrics-server (kubectl top, step 7.4), local-path storage
+  # (PVCs for Postgres and MLflow).
+  kubeconfig:
+    updateDefaultKubeconfig: true
+    switchCurrentContext: true
